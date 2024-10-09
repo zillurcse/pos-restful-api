@@ -2,59 +2,47 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Classes\ApiResponseClass;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreBusinessRequest;
+use App\Http\Resources\BusinessResource;
 use App\Models\Business;
-use Illuminate\Http\Request;
+use App\Services\BusinessService;
+use Illuminate\Support\Facades\DB;
 
 class BusinessController extends Controller
 {
+    protected $businessService;
+
+    public function __construct(BusinessService $businessService)
+    {
+        $this->businessService = $businessService;
+    }
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index()
     {
         try {
-            return response()->json(Business::all(), 200);
+            $data = Business::all();
+
+            return ApiResponseClass::sendResponse(BusinessResource::collection($data));
         }catch (\Exception $exception){
-            return response()->json([
-                'error' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString()
-            ], 500);
+            return ApiResponseClass::rollback($ex);
         }
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreBusinessRequest $request)
     {
         try {
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'owner_id' => 'required|exists:users,id',
-                'currency_id' => 'required|exists:currencies,id',
-                'start_date' => 'nullable|date',
-                'tax_number_1' => 'nullable|string|max:100',
-                'tax_number_2' => 'nullable|string|max:100',
-                'default_profit_percent' => 'numeric|min:0|max:100',
-                'time_zone' => 'string',
-                'fy_start_month' => 'integer|min:1|max:12',
-                'accounting_method' => 'in:fifo,lifo,avco',
-                'default_sales_discount' => 'nullable|numeric|min:0|max:100',
-                'sell_price_tax' => 'in:includes,excludes',
-                'default_sales_tax' => 'nullable',
-                'logo' => 'nullable|string',
-                'sku_prefix' => 'nullable|string|max:100',
-                'enable_tooltip' => 'boolean',
-            ]);
+            $business = $this->businessService->create($request->validated());
 
-            $business = Business::create($request->all());
-            return response()->json($business, 201);
-        }catch (\Exception $exception){
-            return response()->json([
-                'error' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString()
-            ], 500);
+            return ApiResponseClass::sendResponse(BusinessResource::make($business), 'Invoice layout created successfully', 201);
+        } catch (\Exception $e) {
+            return ApiResponseClass::rollback($ex);
         }
     }
 
@@ -75,42 +63,21 @@ class BusinessController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(StoreBusinessRequest $request, string $id)
     {
         try {
-            $business = Business::find($id);
+            $business = $this->businessService->findById($id);
 
             if (!$business) {
-                return response()->json(['message' => 'Business not found'], 404);
+                return ApiResponseClass::sendResponse(null, 'Business not found', 404);
             }
 
-            $request->validate([
-                'name' => 'required|string|max:255',
-                'owner_id' => 'required|exists:users,id',
-                'currency_id' => 'required|exists:currencies,id',
-                'start_date' => 'nullable|date',
-                'tax_number_1' => 'nullable|string|max:100',
-                'tax_number_2' => 'nullable|string|max:100',
-                'default_profit_percent' => 'numeric|min:0|max:100',
-                'time_zone' => 'string',
-                'fy_start_month' => 'integer|min:1|max:12',
-                'accounting_method' => 'in:fifo,lifo,avco',
-                'default_sales_discount' => 'nullable|numeric|min:0|max:100',
-                'sell_price_tax' => 'in:includes,excludes',
-                'default_sales_tax' => 'nullable',
-                'logo' => 'nullable|string',
-                'sku_prefix' => 'nullable|string|max:100',
-                'enable_tooltip' => 'boolean',
-            ]);
+            $updatedBusiness = $this->businessService->update($business, $request->validated());
 
-            $business->update($request->all());
+            return ApiResponseClass::sendResponse(BusinessResource::make($updatedBusiness), 'Business updated successfully', 201);
 
-            return response()->json($business, 200);
-        }catch (\Exception $exception){
-            return response()->json([
-                'error' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString()
-            ], 500);
+        } catch (\Exception $e) {
+            return ApiResponseClass::rollback($e);
         }
     }
 
@@ -119,21 +86,18 @@ class BusinessController extends Controller
      */
     public function destroy(string $id)
     {
+        DB::beginTransaction();
         try {
             $business = Business::find($id);
-
             if (!$business) {
-                return response()->json(['message' => 'Business not found'], 404);
+                return ApiResponseClass::sendResponse(null, 'Business not found', 404);
             }
-
             $business->delete();
-
-            return response()->json(['message' => 'Business deleted'], 200);
-        }catch (\Exception $exception){
-            return response()->json([
-                'error' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString()
-            ], 500);
+            DB::commit();
+            return ApiResponseClass::sendResponse(null, 'Business deleted successfully.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return ApiResponseClass::rollback($e, 'Failed to delete Business.');
         }
     }
 }

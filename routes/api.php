@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\API\BusinessController;
 use App\Http\Controllers\API\BusinessLocationController;
+use App\Http\Controllers\API\InvoiceLayoutController;
+use App\Http\Controllers\API\UnitController;
 use App\Http\Controllers\HydraController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
@@ -38,7 +40,10 @@ Route::apiResource('roles', RoleController::class)->except(['create', 'edit'])->
 Route::apiResource('users.roles', UserRoleController::class)->except(['create', 'edit', 'show', 'update'])->middleware(['auth:sanctum', 'ability:admin,super-admin']);
 
 //POS API
-Route::apiResource('business', BusinessController::class)->except(['create', 'edit'])->middleware(['auth:sanctum', 'ability:admin,super-admin,user']);
+Route::apiResource('business', BusinessController::class)->middleware(['auth:sanctum', 'ability:admin,super-admin,user']);
+Route::apiResource('business-location', BusinessLocationController::class)->middleware(['auth:sanctum', 'ability:admin,super-admin,user']);
+Route::apiResource('invoice-layouts', InvoiceLayoutController::class)->middleware(['auth:sanctum', 'ability:admin,super-admin,user']);
+Route::apiResource('unit', UnitController::class)->middleware(['auth:sanctum', 'ability:admin,super-admin,user']);
 
 
 

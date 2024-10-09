@@ -3,110 +3,96 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\Business;
-use App\Models\User;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreBusinessLocationRequest;
+use App\Http\Requests\StoreBusinessRequest;
+use App\Http\Resources\BusinessLocationResource;
+use App\Models\BusinessLocation;
+use App\Classes\ApiResponseClass;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\JsonResponse;
+use App\Services\BusinessLocationService;
+
 
 class BusinessLocationController extends Controller
 {
+    protected $businessLocationService;
+
+    public function __construct(BusinessLocationService $businessLocationService)
+    {
+        $this->businessLocationService = $businessLocationService;
+    }
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(): JsonResponse
     {
-        return response()->json(Business::all(), 200);
+        try {
+            $business = BusinessLocation::all();
+
+            return ApiResponseClass::sendResponse(BusinessLocationResource::collection($business));
+        }catch (\Exception $e){
+            return ApiResponseClass::rollback($e);
+        }
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreBusinessLocationRequest $request): JsonResponse
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'owner_id' => 'required|exists:users,id',
-            'currency_id' => 'required|exists:currencies,id',
-            'start_date' => 'nullable|date',
-            'tax_number_1' => 'nullable|string|max:100',
-            'tax_number_2' => 'nullable|string|max:100',
-            'default_profit_percent' => 'numeric|min:0|max:100',
-            'time_zone' => 'string',
-            'fy_start_month' => 'integer|min:1|max:12',
-            'accounting_method' => 'in:fifo,lifo,avco',
-            'default_sales_discount' => 'nullable|numeric|min:0|max:100',
-            'sell_price_tax' => 'in:includes,excludes',
-            'default_sales_tax' => 'nullable|exists:taxes,id',
-            'logo' => 'nullable|string',
-            'sku_prefix' => 'nullable|string|max:100',
-            'enable_tooltip' => 'boolean',
-        ]);
+        try {
+            $businessLocation = $this->businessLocationService->createBusinessLocation($request->validated());
 
-        $business = Business::create($request->all());
-        return response()->json($business, 201);
+            return ApiResponseClass::sendResponse(new BusinessLocationResource($businessLocation), 'Business location created successfully.', 201);
+        } catch (\Exception $e) {
+            return ApiResponseClass::rollback($e, 'Failed to create business location.');
+        }
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(string $id): JsonResponse
     {
-        $business = Business::find($id);
+        $businessLocation = BusinessLocation::find($id);
 
-        if (!$business) {
-            return response()->json(['message' => 'Business not found'], 404);
+        if (!$businessLocation) {
+            return ApiResponseClass::sendResponse(new BusinessLocationResource($businessLocation), 'Business location not found.', 404);
         }
 
-        return response()->json($business, 200);
+        return ApiResponseClass::sendResponse(new BusinessLocationResource($businessLocation));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(StoreBusinessLocationRequest $request, BusinessLocation $businessLocation): JsonResponse
     {
-        $business = Business::find($id);
+        try {
+            $updatedLocation = $this->businessLocationService->updateBusinessLocation($businessLocation, $request->validated());
 
-        if (!$business) {
-            return response()->json(['message' => 'Business not found'], 404);
+            return ApiResponseClass::sendResponse(new BusinessLocationResource($businessLocation), 'Business location updated successfully.', 201);
+
+        } catch (\Exception $e) {
+            return ApiResponseClass::rollback($e);
         }
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'owner_id' => 'required|exists:users,id',
-            'currency_id' => 'required|exists:currencies,id',
-            'start_date' => 'nullable|date',
-            'tax_number_1' => 'nullable|string|max:100',
-            'tax_number_2' => 'nullable|string|max:100',
-            'default_profit_percent' => 'numeric|min:0|max:100',
-            'time_zone' => 'string',
-            'fy_start_month' => 'integer|min:1|max:12',
-            'accounting_method' => 'in:fifo,lifo,avco',
-            'default_sales_discount' => 'nullable|numeric|min:0|max:100',
-            'sell_price_tax' => 'in:includes,excludes',
-            'default_sales_tax' => 'nullable|exists:taxes,id',
-            'logo' => 'nullable|string',
-            'sku_prefix' => 'nullable|string|max:100',
-            'enable_tooltip' => 'boolean',
-        ]);
-
-        $business->update($request->all());
-
-        return response()->json($business, 200);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(string $id): JsonResponse
     {
-        $business = Business::find($id);
+        try {
+            $businessLocation = BusinessLocation::findOrFail($id);
 
-        if (!$business) {
-            return response()->json(['message' => 'Business not found'], 404);
+            $businessLocation->delete();
+
+            return ApiResponseClass::sendResponse(null, 'Business location deleted!', 200);
+        } catch (ModelNotFoundException $e) {
+            return ApiResponseClass::sendResponse(null, 'Business location not found!', 404);
+        } catch (\Exception $e) {
+            return ApiResponseClass::sendResponse(null, 'Failed to delete business location.', 500);
         }
-
-        $business->delete();
-
-        return response()->json(['message' => 'Business deleted'], 200);
     }
 }

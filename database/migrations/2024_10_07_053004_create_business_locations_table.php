@@ -13,20 +13,21 @@ return new class extends Migration
     {
         Schema::create('business_locations', function (Blueprint $table) {
             $table->id();
-            // Foreign key referencing 'businesses' table
             $table->unsignedBigInteger('business_id');
             $table->foreign('business_id')->references('id')->on('businesses')->onDelete('cascade');
-            // Location details
+            $table->unsignedBigInteger('location_id');
             $table->string('name', 256);
             $table->text('landmark')->nullable();
             $table->string('country', 100);
             $table->string('state', 100);
             $table->string('city', 100);
             $table->string('zip_code', 10);
-            // Contact details
+            $table->string('building_number', 50);
+            $table->string('plot_identification', 50);
             $table->string('mobile')->nullable();
             $table->string('alternate_number')->nullable();
             $table->string('email', 191)->nullable();
+            $table->tinyInteger('is_active')->default(1);
             $table->softDeletes();
             $table->timestamps();
         });
